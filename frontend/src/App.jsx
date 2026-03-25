@@ -1,13 +1,17 @@
-import "./App.css";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 function App() {
   return (
-    // Phần nền dùng màu xám, căn giữa màn hình
-    <div className="flex items-center justify-center min-h-screen bg-chuppaGray">
-      <h1 className="text-4xl font-bold text-chuppaGreen">
-        Hello ChuppaChup Green Train 🚂
-      </h1>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
