@@ -1,53 +1,69 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; // Thêm useEffect
+import { useNavigate, Link } from "react-router-dom";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
-import { Link, useNavigate } from "react-router-dom";
 
 const Home = () => {
-  // 1. Khai báo công cụ chuyển trang
   const navigate = useNavigate();
 
-  // 2. Tạo State để lưu trữ dữ liệu người dùng nhập
+  // --- LOGIC NHẬN DIỆN NGƯỜI DÙNG ---
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    // Kiểm tra xem có user trong localStorage không
+    const loggedInUser = localStorage.getItem("user");
+    if (loggedInUser) {
+      // Nếu có, chuyển từ chuỗi JSON sang Object và lưu vào State
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setUser(JSON.parse(loggedInUser));
+    }
+  }, []);
+
+  const handleLogout = () => {
+    // Xóa sạch dấu vết đăng nhập
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null); // Cập nhật lại giao diện ngay lập tức
+    alert("Logged out successfully!");
+  };
+  // ----------------------------------
+
   const [fromStation, setFromStation] = useState("");
   const [toStation, setToStation] = useState("");
   const [travelDate, setTravelDate] = useState("");
   const [travelTime, setTravelTime] = useState("");
 
-  // 3. Hàm đảo chiều Ga đi và Ga đến
   const handleSwap = () => {
     setFromStation(toStation);
     setToStation(fromStation);
   };
 
-  // 4. Hàm xử lý khi bấm nút Search
   const handleSearch = (e) => {
-    e.preventDefault(); // Ngăn trình duyệt reload lại trang
-
-    // Kiểm tra xem đã nhập đủ ga đi và đến chưa
+    e.preventDefault();
     if (!fromStation || !toStation) {
       alert("Please enter both Departure and Arrival stations! 🚂");
       return;
     }
-
-    // Chuyển sang trang Results và GỬI KÈM DỮ LIỆU đi theo
     navigate("/results", {
       state: { fromStation, toStation, travelDate, travelTime },
     });
   };
+
   return (
     <div className="min-h-screen bg-chuppaGray flex flex-col font-sans text-gray-800">
-      {/* 1. HEADER (Navbar) */}
+      {/* 1. HEADER (Đã cập nhật logic Login) */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          {/* Logo */}
           <div className="flex items-center gap-2">
-            <span className="text-3xl font-black text-chuppaGreen italic tracking-tighter">
+            <span
+              className="text-3xl font-black text-chuppaGreen italic tracking-tighter cursor-pointer"
+              onClick={() => navigate("/")}
+            >
               ChuppaChup
             </span>
             <span className="text-xl font-bold text-gray-700">Train</span>
           </div>
 
-          {/* Menu Links */}
           <nav className="hidden md:flex gap-8 text-sm font-semibold text-gray-600">
             <a href="#" className="hover:text-chuppaGreen transition-colors">
               For Passengers
@@ -55,28 +71,39 @@ const Home = () => {
             <a href="#" className="hover:text-chuppaGreen transition-colors">
               For Business
             </a>
-            <a href="#" className="hover:text-chuppaGreen transition-colors">
-              About Us
-            </a>
           </nav>
 
-          {/* Actions */}
           <div className="flex items-center gap-4">
-            <div className="hidden lg:flex items-center gap-2 text-sm text-gray-500 border-r pr-4">
-              <span className="cursor-pointer hover:text-chuppaGreen">
-                EN ▾
-              </span>
-              <span className="cursor-pointer">A A A</span>
-            </div>
-            <Link to="/login">
-              <Button variant="ghost">Log in / Register</Button>
-            </Link>
+            {/* Nếu ĐÃ ĐĂNG NHẬP: Hiện tên và nút Logout */}
+            {user ? (
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col items-end">
+                  <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">
+                    Welcome back
+                  </span>
+                  <span className="text-sm font-black text-chuppaGreen">
+                    {user.fullName}
+                  </span>
+                </div>
+                <div className="h-8 w-px bg-gray-200"></div>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm font-bold text-red-500 hover:text-red-700 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              /* Nếu CHƯA ĐĂNG NHẬP: Hiện nút Login như cũ */
+              <Link to="/login">
+                <Button variant="ghost">Log in / Register</Button>
+              </Link>
+            )}
           </div>
         </div>
       </header>
 
-      {/* 2. HERO SECTION (Form tìm kiếm) */}
-      {/* 2. HERO SECTION (Form tìm kiếm) */}
+      {/* 2. HERO SECTION (Giữ nguyên) */}
       <main className="flex-grow">
         <section className="bg-chuppaGreen-dark py-12 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-12 bg-chuppaGreen-light opacity-20 rounded-b-[50%]"></div>
@@ -88,7 +115,6 @@ const Home = () => {
               </span>
             </div>
 
-            {/* THAY ĐỔI LỚN: Biến thẻ div thành thẻ form và thêm sự kiện onSubmit */}
             <form
               onSubmit={handleSearch}
               className="bg-chuppaGreen p-6 rounded-xl shadow-2xl flex flex-col md:flex-row gap-4 items-end border border-chuppaGreen-light"
@@ -102,11 +128,9 @@ const Home = () => {
                 />
               </div>
 
-              {/* Nút mũi tên gọi hàm handleSwap */}
               <div
                 onClick={handleSwap}
                 className="pb-6 text-white cursor-pointer hover:scale-125 transition-transform flex items-center justify-center w-10 h-10"
-                title="Swap stations"
               >
                 ⇄
               </div>

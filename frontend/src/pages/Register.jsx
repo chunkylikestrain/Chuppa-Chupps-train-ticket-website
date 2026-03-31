@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 
@@ -10,17 +11,43 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleRegister = (e) => {
-    e.preventDefault();
+  // State để hiển thị lỗi nếu có
+  const [errorMsg, setErrorMsg] = useState("");
+  const navigate = useNavigate();
 
-    // Kiểm tra cơ bản ở Frontend trước khi gửi lên Backend
+  const handleRegister = async (e) => {
+    // Thêm async vào đây
+    e.preventDefault();
+    setErrorMsg(""); // Xóa lỗi cũ (nếu có)
+
+    // 1. Kiểm tra mật khẩu khớp nhau ở Frontend
     if (password !== confirmPassword) {
-      alert("Passwords do not match!");
+      setErrorMsg("Passwords do not match!");
       return;
     }
 
-    console.log("Đang đăng ký tài khoản cho:", fullName, email);
-    // TODO: Gọi API Backend tạo User ở đây sau này
+    try {
+      // 2. Gửi dữ liệu lên Backend bằng Axios
+      const response = await axios.post(
+        "http://localhost:5000/api/auth/register",
+        {
+          fullName,
+          email,
+          password,
+        },
+      );
+
+      // 3. Nếu thành công (Backend trả về 201)
+      alert("🎉 " + response.data.message); // Hiển thị thông báo thành công
+      navigate("/login"); // Tự động đẩy người dùng sang trang Đăng nhập
+    } catch (error) {
+      // 4. Bắt lỗi từ Backend trả về (ví dụ: Email đã tồn tại)
+      if (error.response && error.response.data) {
+        setErrorMsg(error.response.data.message);
+      } else {
+        setErrorMsg("Something went wrong. Please try again later.");
+      }
+    }
   };
 
   return (
@@ -44,6 +71,12 @@ const Register = () => {
               Create an account to book your green journeys faster.
             </p>
           </div>
+
+          {errorMsg && (
+            <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-sm font-medium">
+              {errorMsg}
+            </div>
+          )}
 
           <form onSubmit={handleRegister} className="space-y-4">
             <Input
