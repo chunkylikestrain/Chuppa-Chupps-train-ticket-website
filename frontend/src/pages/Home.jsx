@@ -1,9 +1,39 @@
-import React from "react";
+import React, { useState } from "react";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const Home = () => {
+  // 1. Khai báo công cụ chuyển trang
+  const navigate = useNavigate();
+
+  // 2. Tạo State để lưu trữ dữ liệu người dùng nhập
+  const [fromStation, setFromStation] = useState("");
+  const [toStation, setToStation] = useState("");
+  const [travelDate, setTravelDate] = useState("");
+  const [travelTime, setTravelTime] = useState("");
+
+  // 3. Hàm đảo chiều Ga đi và Ga đến
+  const handleSwap = () => {
+    setFromStation(toStation);
+    setToStation(fromStation);
+  };
+
+  // 4. Hàm xử lý khi bấm nút Search
+  const handleSearch = (e) => {
+    e.preventDefault(); // Ngăn trình duyệt reload lại trang
+
+    // Kiểm tra xem đã nhập đủ ga đi và đến chưa
+    if (!fromStation || !toStation) {
+      alert("Please enter both Departure and Arrival stations! 🚂");
+      return;
+    }
+
+    // Chuyển sang trang Results và GỬI KÈM DỮ LIỆU đi theo
+    navigate("/results", {
+      state: { fromStation, toStation, travelDate, travelTime },
+    });
+  };
   return (
     <div className="min-h-screen bg-chuppaGray flex flex-col font-sans text-gray-800">
       {/* 1. HEADER (Navbar) */}
@@ -46,10 +76,9 @@ const Home = () => {
       </header>
 
       {/* 2. HERO SECTION (Form tìm kiếm) */}
+      {/* 2. HERO SECTION (Form tìm kiếm) */}
       <main className="flex-grow">
-        {/* Lớp nền màu xanh lá cây chủ đạo */}
         <section className="bg-chuppaGreen-dark py-12 relative overflow-hidden">
-          {/* Dòng line trang trí lượn sóng (Mô phỏng đường màu cam của PKP) */}
           <div className="absolute top-0 left-0 w-full h-12 bg-chuppaGreen-light opacity-20 rounded-b-[50%]"></div>
 
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -59,36 +88,65 @@ const Home = () => {
               </span>
             </div>
 
-            {/* Khung Form Tìm vé */}
-            <div className="bg-chuppaGreen p-6 rounded-xl shadow-2xl flex flex-col md:flex-row gap-4 items-end border border-chuppaGreen-light">
+            {/* THAY ĐỔI LỚN: Biến thẻ div thành thẻ form và thêm sự kiện onSubmit */}
+            <form
+              onSubmit={handleSearch}
+              className="bg-chuppaGreen p-6 rounded-xl shadow-2xl flex flex-col md:flex-row gap-4 items-end border border-chuppaGreen-light"
+            >
               <div className="flex-1 w-full text-white">
-                <Input label="FROM" placeholder="e.g. Poznań Gł." />
+                <Input
+                  label="FROM"
+                  placeholder="e.g. Warszawa Centralna"
+                  value={fromStation}
+                  onChange={(e) => setFromStation(e.target.value)}
+                />
               </div>
 
-              {/* Nút đảo ngược ga (Mũi tên 2 chiều) */}
-              <div className="pb-6 text-white cursor-pointer hover:scale-110 transition-transform">
+              {/* Nút mũi tên gọi hàm handleSwap */}
+              <div
+                onClick={handleSwap}
+                className="pb-6 text-white cursor-pointer hover:scale-125 transition-transform flex items-center justify-center w-10 h-10"
+                title="Swap stations"
+              >
                 ⇄
               </div>
 
               <div className="flex-1 w-full text-white">
-                <Input label="TO" placeholder="e.g. Szczecin Gł." />
+                <Input
+                  label="TO"
+                  placeholder="e.g. Kraków Główny"
+                  value={toStation}
+                  onChange={(e) => setToStation(e.target.value)}
+                />
               </div>
 
               <div className="w-full md:w-40 text-white">
-                <Input label="WHEN" type="date" />
+                <Input
+                  label="WHEN"
+                  type="date"
+                  value={travelDate}
+                  onChange={(e) => setTravelDate(e.target.value)}
+                />
               </div>
 
               <div className="w-full md:w-32 text-white">
-                <Input label="TIME" type="time" />
+                <Input
+                  label="TIME"
+                  type="time"
+                  value={travelTime}
+                  onChange={(e) => setTravelTime(e.target.value)}
+                />
               </div>
 
               <div className="w-full md:w-auto pb-4">
-                {/* Nút Search màu cam/vàng để nổi bật trên nền xanh */}
-                <button className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-2.5 px-8 rounded-lg shadow-md transition-colors w-full h-[42px]">
+                <button
+                  type="submit"
+                  className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-2.5 px-8 rounded-lg shadow-md transition-colors w-full h-[42px]"
+                >
                   Search
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </section>
 
