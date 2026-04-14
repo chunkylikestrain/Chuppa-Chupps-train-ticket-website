@@ -157,7 +157,7 @@ const Home = () => {
 
       <main className="flex-grow">
         {/* 2. HERO SECTION & FORM CÓ AUTOCOMPLETE */}
-        <section className="bg-chuppaGreen-dark py-12 relative overflow-hidden">
+        <section className="bg-chuppaGreen-dark py-12 relative ">
           <div className="absolute top-0 left-0 w-full h-12 bg-chuppaGreen-light opacity-20 rounded-b-[50%]"></div>
 
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
