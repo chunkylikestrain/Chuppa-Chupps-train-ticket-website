@@ -43,7 +43,7 @@ router.post("/register", async (req, res) => {
 
 // ==========================================
 // 2. API ĐĂNG NHẬP (LOGIN)
-// ==========================================
+
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -79,6 +79,7 @@ router.post("/login", async (req, res) => {
         id: user._id,
         fullName: user.fullName,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (error) {

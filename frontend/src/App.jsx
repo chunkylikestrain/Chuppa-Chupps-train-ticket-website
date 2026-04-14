@@ -5,6 +5,7 @@ import Register from "./pages/Register";
 import SearchResults from "./pages/SearchResults";
 import SeatSelection from "./pages/SeatSelection";
 import Checkout from "./pages/Checkout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/results" element={<SearchResults />} />
         <Route path="/seat-selection" element={<SeatSelection />} />
         <Route path="/checkout" element={<Checkout />} />
+        <Route path="/admin" element={<AdminDashboard />} />
       </Routes>
     </BrowserRouter>
   );

@@ -27,5 +27,7 @@ app.use("/api/trains", trainRoutes);
 // Khởi động Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server ChuppaChup đang chạy rầm rập tại cổng ${PORT}`);
+  console.log(
+    `🚀 The ChuppaChup server is running at full speed at the gateway. ${PORT}`,
+  );
 });
