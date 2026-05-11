@@ -1,230 +1,311 @@
-import React, { useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+// Path: src/pages/SeatSelection.jsx
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { ChevronLeft, Info, Loader2 } from "lucide-react";
 import Button from "../components/ui/Button";
 
-// 1. Dữ liệu giả lập sơ đồ ghế cho một toa tàu (20 ghế)
-const initialSeatsData = Array.from({ length: 20 }, (_, i) => ({
-  id: i + 1,
-  number: (i + 1).toString().padStart(2, "0"),
-  status: Math.random() < 0.3 ? "occupied" : "available",
-}));
-
 const SeatSelection = () => {
-  // 2. Setup Routing & State
   const location = useLocation();
   const navigate = useNavigate();
-  const bookingData = location.state || {};
-  const train = bookingData.selectedTrain || {};
 
+  const { selectedSchedule, searchParams } = location.state || {};
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [activeCarriageIdx, setActiveCarriageIdx] = useState(0);
 
-  // 3. Hàm xử lý click
-  const handleSeatClick = (seat) => {
-    if (seat.status === "occupied") return;
+  // --- THÊM STATE ĐỂ GIẢI QUYẾT BUG 1 ---
+  const [freshInventory, setFreshInventory] = useState(null);
+  const [isFetchingSeats, setIsFetchingSeats] = useState(true);
 
-    setSelectedSeats((prev) => {
-      if (prev.includes(seat.id)) {
-        return prev.filter((id) => id !== seat.id);
-      } else {
-        return [...prev, seat.id];
+  useEffect(() => {
+    if (!selectedSchedule) {
+      navigate("/");
+      return;
+    }
+
+    // FETCH REALTIME SEAT INVENTORY
+    const fetchFreshSeats = async () => {
+      setIsFetchingSeats(true);
+      try {
+        const scheduleId = selectedSchedule.scheduleId || selectedSchedule._id;
+        const res = await axios.get(
+          `http://localhost:5000/api/public/schedules/${scheduleId}`,
+        );
+        setFreshInventory(res.data.seatInventory);
+      } catch (error) {
+        console.error("Lỗi khi lấy dữ liệu ghế mới nhất:", error);
+        // Fallback dùng dữ liệu cũ nếu lỗi mạng
+        setFreshInventory(selectedSchedule.seatInventory);
+      } finally {
+        setIsFetchingSeats(false);
       }
+    };
+
+    fetchFreshSeats();
+  }, [selectedSchedule, navigate]);
+
+  if (!selectedSchedule) return null;
+
+  const inventory = freshInventory || selectedSchedule.seatInventory;
+  const currentCarriage = inventory ? inventory[activeCarriageIdx] : null;
+
+  const formatType = (type) => {
+    const types = {
+      soft_seat: "Soft Seat",
+      hard_seat: "Hard Seat",
+      soft_sleeper: "Soft Sleeper",
+      hard_sleeper: "Hard Sleeper",
+      vip: "VIP Cabin",
+    };
+    return types[type] || type;
+  };
+
+  const getPriceForCarriage = (seatType) => {
+    const pricing = selectedSchedule.pricings?.find(
+      (p) => p.seatType === seatType && p.passengerType === "adult",
+    );
+    return pricing ? pricing.price : selectedSchedule.basePrice;
+  };
+
+  const currentPrice = currentCarriage
+    ? getPriceForCarriage(currentCarriage.type)
+    : 0;
+
+  const cols = ["A", "B", "C", "D"];
+  const numRows = currentCarriage
+    ? Math.ceil(currentCarriage.totalSeats / 4)
+    : 0;
+  const rows = Array.from({ length: numRows }, (_, i) => i + 1);
+
+  const handleSeatClick = (seatId) => {
+    if (!currentCarriage) return;
+    const globalSeatId = `${currentCarriage.carriageNumber}-${seatId}`;
+    const displayId = `Carriage ${currentCarriage.carriageNumber} - ${seatId}`;
+
+    if (selectedSeats.find((s) => s.id === globalSeatId)) {
+      setSelectedSeats(selectedSeats.filter((s) => s.id !== globalSeatId));
+    } else {
+      const maxPassengers = parseInt(searchParams?.passengers || 1);
+      if (selectedSeats.length < maxPassengers) {
+        setSelectedSeats([
+          ...selectedSeats,
+          { id: globalSeatId, display: displayId, price: currentPrice },
+        ]);
+      } else {
+        alert(`You can only select up to ${maxPassengers} seats.`);
+      }
+    }
+  };
+
+  const totalPrice = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
+
+  const handleContinue = () => {
+    navigate("/checkout", {
+      state: {
+        selectedSchedule,
+        searchParams,
+        selectedSeats: selectedSeats.map((s) => s.display),
+        totalPrice,
+      },
     });
   };
 
-  const totalPrice = (
-    selectedSeats.length * parseFloat(train.price || 0)
-  ).toFixed(2);
-
-  // 4. Lấy màu ghế
-  const getSeatColor = (seat) => {
-    if (seat.status === "occupied") return "bg-gray-300 cursor-not-allowed";
-    if (selectedSeats.includes(seat.id))
-      return "bg-chuppaGreen text-white shadow-md scale-105";
-    return "bg-white border-2 border-chuppaGreen hover:bg-chuppaGreen/10";
-  };
-
-  // Chia ghế thành 2 hàng (Top và Bottom)
-  const topRowSeats = initialSeatsData.slice(0, 10);
-  const bottomRowSeats = initialSeatsData.slice(10, 20);
-
   return (
-    <div className="min-h-screen bg-chuppaGray font-sans flex flex-col">
-      {/* HEADER */}
-      <header className="bg-chuppaGreen-dark text-white shadow-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link
-            to="/results"
-            className="text-white hover:text-yellow-300 transition-colors font-medium flex items-center gap-2"
+    <div className="min-h-screen bg-slate-50 font-sans pb-12">
+      <div className="bg-slate-900 text-white py-6 px-4 shadow-md sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto flex items-center gap-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-slate-400 hover:text-white"
           >
-            ← Back to results
-          </Link>
-          <div className="text-center">
-            <h1 className="text-2xl font-bold uppercase tracking-wide">
-              {bookingData.displayFrom} ➔ {bookingData.displayTo}
-            </h1>
-            <p className="text-xs text-chuppaGreen-light uppercase font-bold tracking-widest mt-0.5">
-              {bookingData.displayDate} • {train.type} {train.trainNumber} •{" "}
-              {train.price} PLN/Seat
+            <ChevronLeft size={24} />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold">Select Your Seats</h1>
+            <p className="text-sm text-slate-400">
+              {selectedSchedule.fromStation} ➔ {selectedSchedule.toStation} |{" "}
+              {selectedSchedule.travelDate}
             </p>
           </div>
-          <div className="text-2xl font-black italic tracking-tighter invisible">
-            ChuppaChup Train
-          </div>
         </div>
-      </header>
+      </div>
 
-      {/* CHÍNH */}
-      <main className="flex-grow max-w-7xl mx-auto w-full px-4 py-8 flex flex-col xl:flex-row gap-8">
-        {/* NỬA TRÁI: Sơ đồ ghế (Coach layout - Chiều ngang) */}
-        <div className="flex-1 bg-white p-6 rounded-2xl shadow-xl border border-gray-100 relative overflow-x-auto">
-          <div className="text-center mb-8 border-b pb-4 min-w-[600px]">
-            <span className="bg-chuppaGray text-chuppaGreen-dark font-bold px-5 py-2 rounded-full shadow-inner border border-chuppaGreen/20">
-              COACH 5 (2ND CLASS) - 20 SEATS
-            </span>
-          </div>
-
-          {/* Hình dáng toa tàu xoay ngang */}
-          <div className="relative border-4 border-chuppaGreen-light rounded-l-3xl rounded-r-3xl py-12 px-16 bg-white shadow-[0_0_20px_rgba(0,0,0,0.05)_inset] min-w-[700px] mx-auto">
-            {/* Cửa trái */}
-            <div className="absolute top-1/2 left-0 -translate-y-1/2 w-8 h-32 bg-chuppaGreen-dark rounded-r-lg flex items-center justify-center">
-              <span className="text-xs text-white font-black -rotate-90 whitespace-nowrap">
-                ENTRANCE
-              </span>
+      <main className="max-w-5xl mx-auto px-4 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          {/* TRẠNG THÁI LOADING */}
+          {isFetchingSeats ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-20 flex flex-col items-center justify-center">
+              <Loader2
+                size={48}
+                className="text-chuppaGreen animate-spin mb-4"
+              />
+              <p className="text-slate-500 font-medium">
+                Checking live seat availability...
+              </p>
             </div>
-
-            {/* Cửa phải (WC/Exit) */}
-            <div className="absolute top-1/2 right-0 -translate-y-1/2 w-8 h-32 bg-chuppaGreen-dark rounded-l-lg flex items-center justify-center">
-              <span className="text-xs text-white font-black -rotate-90 whitespace-nowrap">
-                WC / EXIT
-              </span>
-            </div>
-
-            {/* SƠ ĐỒ GHẾ CHIỀU NGANG */}
-            <div className="flex flex-col gap-12">
-              {/* Hàng trên (Top Row) */}
-              <div className="flex justify-between gap-4">
-                {topRowSeats.map((seat) => (
-                  <div
-                    key={seat.id}
-                    onClick={() => handleSeatClick(seat)}
-                    className={`relative flex items-center justify-center h-12 w-12 rounded-lg font-bold text-gray-700 transition-all cursor-pointer ${getSeatColor(
-                      seat,
-                    )}`}
+          ) : (
+            <>
+              <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 mb-4">
+                {inventory.map((c, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveCarriageIdx(idx)}
+                    className={`shrink-0 px-4 py-3 rounded-xl border-2 font-bold text-sm text-left transition-all ${
+                      activeCarriageIdx === idx
+                        ? "border-chuppaGreen bg-chuppaGreen/5 text-chuppaGreen"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                    }`}
                   >
-                    {seat.number}
-                    <span className="absolute bottom-0.5 right-1 text-[8px] opacity-70">
-                      W
-                    </span>
-                  </div>
+                    <div className="text-xs font-medium text-slate-400">
+                      Carriage {c.carriageNumber}
+                    </div>
+                    <div>{formatType(c.type)}</div>
+                    <div className="text-xs mt-1 text-slate-800">
+                      {getPriceForCarriage(c.type)} PLN
+                    </div>
+                  </button>
                 ))}
               </div>
 
-              {/* Lối đi ở giữa ngầm hiểu (Khoảng cách gap-12 ở trên tạo ra lối đi này) */}
-              {/* Thêm một đường đứt nét mờ để chỉ thị lối đi */}
-              <div className="absolute left-16 right-16 top-1/2 -translate-y-1/2 border-t-2 border-dashed border-gray-200"></div>
-
-              {/* Hàng dưới (Bottom Row) */}
-              <div className="flex justify-between gap-4">
-                {bottomRowSeats.map((seat) => (
-                  <div
-                    key={seat.id}
-                    onClick={() => handleSeatClick(seat)}
-                    className={`relative flex items-center justify-center h-12 w-12 rounded-lg font-bold text-gray-700 transition-all cursor-pointer ${getSeatColor(
-                      seat,
-                    )}`}
-                  >
-                    {seat.number}
-                    <span className="absolute top-0.5 right-1 text-[8px] opacity-70">
-                      A
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="font-bold text-slate-800 text-lg">
+                    Carriage {currentCarriage.carriageNumber} Map
+                  </h2>
+                  <div className="flex gap-3 text-xs font-medium text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded bg-slate-100 border border-slate-300"></div>{" "}
+                      Available
                     </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* NỬA PHẢI: Tóm tắt (Giữ nguyên) */}
-        <aside className="w-full xl:w-96 flex-shrink-0">
-          <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 sticky top-28 z-40">
-            <div className="mb-6 flex items-center gap-3 text-chuppaGreen-dark">
-              🎫{" "}
-              <h2 className="text-xl font-bold text-gray-800">
-                Booking Summary
-              </h2>
-            </div>
-
-            <div className="flex gap-4 text-xs font-medium text-gray-600 mb-6 bg-chuppaGray p-3 rounded-lg border">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3.5 h-3.5 rounded border-2 border-chuppaGreen bg-white"></div>{" "}
-                Available
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3.5 h-3.5 rounded bg-chuppaGreen"></div>{" "}
-                Selected
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3.5 h-3.5 rounded bg-gray-300"></div> Occupied
-              </div>
-            </div>
-
-            <div className="space-y-4 border-t pt-5">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500 font-medium">
-                  Selected Seats:
-                </span>
-                <span className="text-chuppaGreen font-bold text-base">
-                  {selectedSeats.length > 0 ? selectedSeats.join(", ") : "None"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500 font-medium">Passengers:</span>
-                <span className="text-gray-800 font-bold">
-                  {selectedSeats.length}
-                </span>
-              </div>
-
-              <div className="border-t pt-4 mt-5">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 font-medium">
-                    Total Price:
-                  </span>
-                  <div className="text-right">
-                    <span className="text-3xl font-black text-chuppaGreen">
-                      {totalPrice} PLN
+                    <span className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded bg-chuppaGreen"></div>{" "}
+                      Selected
                     </span>
-                    <p className="text-xs text-gray-400">Including VAT</p>
+                    <span className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded bg-slate-300"></div>{" "}
+                      Booked
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              <div className="pt-6">
-                <Button
-                  variant="primary"
-                  fullWidth
-                  className={
-                    selectedSeats.length === 0
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }
-                  onClick={() => {
-                    if (selectedSeats.length > 0) {
-                      navigate("/checkout", {
-                        state: {
-                          ...bookingData,
-                          selectedSeats: selectedSeats,
-                          totalPrice: totalPrice,
-                        },
-                      });
-                    }
-                  }}
-                >
-                  Continue to Payment →
-                </Button>
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 flex flex-col items-center overflow-x-auto">
+                  {rows.map((row) => (
+                    <div key={row} className="flex gap-2 sm:gap-6 mb-3">
+                      {cols.map((col, idx) => {
+                        const seatNumber = (row - 1) * 4 + idx + 1;
+                        if (seatNumber > currentCarriage.totalSeats)
+                          return <div key={col} className="w-10 sm:w-12"></div>;
+
+                        const seatId = `${row}${col}`;
+                        const globalSeatId = `${currentCarriage.carriageNumber}-${seatId}`;
+                        const displayId = `Carriage ${currentCarriage.carriageNumber} - ${seatId}`;
+
+                        const safeBookedList =
+                          currentCarriage.bookedSeats || [];
+                        const isBooked =
+                          safeBookedList.includes(seatId) ||
+                          safeBookedList.includes(globalSeatId) ||
+                          safeBookedList.includes(displayId);
+                        const isSelected = selectedSeats.find(
+                          (s) => s.id === globalSeatId,
+                        );
+                        const isAisle = idx === 1;
+
+                        return (
+                          <React.Fragment key={seatId}>
+                            <button
+                              disabled={isBooked}
+                              onClick={() => handleSeatClick(seatId)}
+                              title={`${formatType(currentCarriage.type)} - ${currentPrice} PLN`}
+                              className={`w-10 h-12 sm:w-12 sm:h-14 rounded-t-lg rounded-b-sm border-2 flex items-center justify-center text-xs font-bold transition-all ${
+                                isBooked
+                                  ? "bg-slate-300 border-slate-300 text-slate-500 cursor-not-allowed"
+                                  : isSelected
+                                    ? "bg-chuppaGreen border-chuppaGreen text-white shadow-md transform -translate-y-1"
+                                    : "bg-white border-slate-300 text-slate-600 hover:border-chuppaGreen hover:text-chuppaGreen"
+                              }`}
+                            >
+                              {seatId}
+                            </button>
+                            {isAisle && (
+                              <div className="w-6 sm:w-10 flex items-center justify-center text-[10px] text-slate-300 font-bold">
+                                {row}
+                              </div>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 sticky top-24">
+            <h2 className="font-bold text-slate-800 text-lg mb-4">
+              Journey Summary
+            </h2>
+            <div className="space-y-3 border-b border-slate-100 pb-4 mb-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Train</span>
+                <span className="font-bold text-slate-800">
+                  {selectedSchedule.trainCode}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Seats Selected</span>
+                <div className="text-right">
+                  {selectedSeats.length > 0 ? (
+                    selectedSeats.map((s) => (
+                      <div
+                        key={s.id}
+                        className="font-bold text-slate-800 text-xs mb-1"
+                      >
+                        {s.display}{" "}
+                        <span className="text-chuppaGreen">
+                          ({s.price} PLN)
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <span className="font-bold text-slate-800">None</span>
+                  )}
+                </div>
               </div>
             </div>
+
+            <div className="flex justify-between items-end mb-6">
+              <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">
+                Total Price
+              </span>
+              <span className="text-3xl font-black text-chuppaGreen">
+                {totalPrice} PLN
+              </span>
+            </div>
+
+            <div className="bg-blue-50 text-blue-700 p-3 rounded-lg flex items-start gap-2 text-xs font-medium mb-6 border border-blue-100">
+              <Info size={16} className="shrink-0 mt-0.5" />
+              <p>
+                You need to select exactly {searchParams?.passengers || 1}{" "}
+                seat(s) to proceed to checkout.
+              </p>
+            </div>
+
+            <Button
+              fullWidth
+              disabled={
+                isFetchingSeats ||
+                selectedSeats.length !== parseInt(searchParams?.passengers || 1)
+              }
+              onClick={handleContinue}
+            >
+              Continue to Payment
+            </Button>
           </div>
-        </aside>
+        </div>
       </main>
     </div>
   );

@@ -1,43 +1,38 @@
+// backend/models/Train.js
 import mongoose from "mongoose";
 
-// Khởi tạo Schema cho chuyến tàu
 const trainSchema = new mongoose.Schema(
   {
-    trainNumber: {
+    trainCode: {
+      type: String,
+      required: true,
+      unique: true, // VD: "SE1", "TN2"
+    },
+    trainName: {
       type: String,
       required: true,
     },
-    type: {
+    carriages: [
+      {
+        carriageNumber: { type: Number, required: true },
+        type: {
+          type: String,
+          enum: [
+            "soft_seat",
+            "hard_seat",
+            "soft_sleeper",
+            "hard_sleeper",
+            "vip",
+          ],
+          required: true,
+        },
+        totalSeats: { type: Number, required: true },
+      },
+    ],
+    status: {
       type: String,
-      required: true,
-    },
-    fromStation: {
-      type: String,
-      required: true,
-    },
-    toStation: {
-      type: String,
-      required: true,
-    },
-    departureTime: {
-      type: String,
-      required: true,
-    },
-    arrivalTime: {
-      type: String,
-      required: true,
-    },
-    duration: {
-      type: String,
-      required: true,
-    },
-    price: {
-      type: Number,
-      required: true,
-    },
-    travelDate: {
-      type: String,
-      required: true,
+      enum: ["active", "maintenance", "retired"],
+      default: "active",
     },
   },
   {

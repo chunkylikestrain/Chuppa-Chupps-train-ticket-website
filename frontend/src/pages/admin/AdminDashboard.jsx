@@ -1,226 +1,229 @@
+// src/pages/admin/AdminDashboard.jsx
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Train,
-  MapPin,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  CircleDollarSign,
   Ticket,
-  BarChart3,
-  LogOut,
-  Menu,
-  X,
-  UserCircle,
+  Users,
+  CalendarClock,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-import TrainManagement from "../../components/admin/TrainManagement";
+import adminService from "../../services/adminService";
+import StatCard from "../../components/admin/StatCard";
 
 const AdminDashboard = () => {
-  const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [adminUser, setAdminUser] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [chartData, setChartData] = useState([]);
+  const [recentBookings, setRecentBookings] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // 1. BẢO VỆ ROUTE: Kiểm tra xem có phải Admin không
   useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    if (!userStr) {
-      navigate("/login");
-      return;
-    }
+    fetchDashboardData();
+  }, []);
 
-    const user = JSON.parse(userStr);
-    if (user.role !== "admin") {
-      alert("Access Denied! You do not have admin privileges.");
-      navigate("/");
-      return;
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAdminUser(user);
-  }, [navigate]);
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      // Gọi song song 3 API để tối ưu tốc độ tải trang
+      const [statsRes, revenueRes, bookingsRes] = await Promise.all([
+        adminService.getOverviewStats(),
+        adminService.getRevenueStats({ period: "daily" }), // Lấy doanh thu theo ngày
+        adminService.getBookings({ limit: 5 }), // Lấy 5 đơn mới nhất
+      ]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
+      setStats(statsRes.data);
 
-  // Cấu hình Menu
-  const menuItems = [
-    { id: "overview", label: "Overview", icon: <LayoutDashboard size={20} /> },
-    { id: "trains", label: "Trains", icon: <Train size={20} /> },
-    { id: "stations", label: "Stations", icon: <MapPin size={20} /> },
-    { id: "bookings", label: "Bookings", icon: <Ticket size={20} /> },
-    { id: "analytics", label: "Analytics", icon: <BarChart3 size={20} /> },
-  ];
+      // Xử lý dữ liệu biểu đồ: Chỉ lấy 7 ngày gần nhất
+      const dailyData = revenueRes.data.slice(-7).map((item) => ({
+        date: item._id.substring(5, 10), // Cắt lấy MM-DD cho ngắn gọn
+        revenue: item.totalRevenue,
+      }));
+      setChartData(dailyData);
 
-  // Render Nội dung chính tùy theo Tab đang chọn
-  const renderContent = () => {
-    switch (activeTab) {
-      case "overview":
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">
-              Dashboard Overview
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Thẻ Thống kê giả lập */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-                <div className="p-4 bg-blue-50 text-blue-600 rounded-lg">
-                  <Train size={28} />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">
-                    Active Trains
-                  </p>
-                  <p className="text-2xl font-black text-gray-800">24</p>
-                </div>
-              </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-                <div className="p-4 bg-green-50 text-green-600 rounded-lg">
-                  <Ticket size={28} />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">
-                    Tickets Sold Today
-                  </p>
-                  <p className="text-2xl font-black text-gray-800">1,204</p>
-                </div>
-              </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-                <div className="p-4 bg-yellow-50 text-yellow-600 rounded-lg">
-                  <BarChart3 size={28} />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">
-                    Revenue (PLN)
-                  </p>
-                  <p className="text-2xl font-black text-gray-800">45,890</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      case "trains":
-        return <TrainManagement />;
-      case "stations":
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-800">
-              Station Management
-            </h2>
-            <p className="text-gray-500 mt-2">
-              Tính năng Quản lý ga tàu sẽ nằm ở đây...
-            </p>
-          </div>
-        );
-      case "bookings":
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-800">
-              Booking Management
-            </h2>
-            <p className="text-gray-500 mt-2">
-              Danh sách đơn đặt vé sẽ nằm ở đây...
-            </p>
-          </div>
-        );
-      default:
-        return null;
+      // Lưu 5 đơn hàng
+      // Lưu ý: Tùy backend trả về { bookings: [] } hay mảng thẳng []
+      setRecentBookings(bookingsRes.data.bookings || bookingsRes.data || []);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load dashboard data. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  if (!adminUser) return null; // Tránh render nháy khi chưa check xong quyền
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-slate-400">
+        <Loader2 size={48} className="animate-spin mb-4 text-chuppaGreen" />
+        <p>Loading overview data...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 text-red-600 p-6 rounded-xl flex items-center gap-3">
+        <AlertCircle size={24} />
+        <p className="font-medium">{error}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
-      {/* NỬA TRÁI: SIDEBAR */}
-      <aside
-        className={`${isSidebarOpen ? "w-64" : "w-20"} bg-slate-900 text-white transition-all duration-300 ease-in-out flex flex-col shadow-xl`}
-      >
-        {/* Logo & Toggle */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800">
-          {isSidebarOpen && (
-            <span className="text-xl font-black italic tracking-tighter text-chuppaGreen">
-              Chuppa<span className="text-white">Admin</span>
-            </span>
-          )}
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 rounded-lg hover:bg-slate-800 text-gray-400 hover:text-white transition-colors focus:outline-none"
-          >
-            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-
-        {/* User Info */}
-        <div
-          className={`p-4 border-b border-slate-800 flex items-center gap-3 ${!isSidebarOpen && "justify-center"}`}
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-slate-800">
+          Dashboard Overview
+        </h1>
+        <button
+          onClick={fetchDashboardData}
+          className="text-sm font-medium text-chuppaGreen hover:underline"
         >
-          <UserCircle size={32} className="text-gray-400" />
-          {isSidebarOpen && (
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold truncate">{adminUser.fullName}</p>
-              <p className="text-xs text-slate-400 truncate">
-                {adminUser.email}
-              </p>
-            </div>
-          )}
-        </div>
+          Refresh Data
+        </button>
+      </div>
 
-        {/* Menu Navigation */}
-        <nav className="flex-1 py-4 flex flex-col gap-1 px-2">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-colors group ${
-                activeTab === item.id
-                  ? "bg-chuppaGreen text-white"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              } ${!isSidebarOpen && "justify-center"}`}
-              title={!isSidebarOpen ? item.label : ""}
-            >
-              <div
-                className={`${activeTab === item.id ? "text-white" : "text-slate-400 group-hover:text-chuppaGreen"}`}
-              >
-                {item.icon}
+      {/* 1. SECTION: THẺ THỐNG KÊ (STAT CARDS) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Revenue (This Month)"
+          value={`${stats?.revenueThisMonth?.toLocaleString() || 0} PLN`}
+          icon={<CircleDollarSign size={24} />}
+          colorClass="bg-green-50 text-green-600"
+        />
+        <StatCard
+          title="Total Bookings"
+          value={stats?.totalBookings || 0}
+          icon={<Ticket size={24} />}
+          colorClass="bg-blue-50 text-blue-600"
+        />
+        <StatCard
+          title="Total Users"
+          value={stats?.totalUsers || 0}
+          icon={<Users size={24} />}
+          colorClass="bg-purple-50 text-purple-600"
+        />
+        <StatCard
+          title="Schedules (This Month)"
+          value={stats?.schedulesThisMonth || 0}
+          icon={<CalendarClock size={24} />}
+          colorClass="bg-orange-50 text-orange-600"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 2. SECTION: BIỂU ĐỒ DOANH THU 7 NGÀY (RECHARTS) */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-800 mb-6">
+            Revenue - Last 7 Days
+          </h2>
+          <div className="h-72 w-full">
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#E2E8F0"
+                  />
+                  <XAxis
+                    dataKey="date"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: "#64748B" }}
+                    dy={10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: "#64748B" }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#F8FAFC" }}
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "none",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    }}
+                  />
+                  <Bar
+                    dataKey="revenue"
+                    fill="#2563EB"
+                    radius={[4, 4, 0, 0]}
+                    name="Revenue (PLN)"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-slate-400">
+                No revenue data for the last 7 days.
               </div>
-              {isSidebarOpen && (
-                <span className="font-medium">{item.label}</span>
-              )}
-            </button>
-          ))}
-        </nav>
-
-        {/* Logout Button */}
-        <div className="p-4 border-t border-slate-800">
-          <button
-            onClick={handleLogout}
-            className={`flex items-center gap-3 text-red-400 hover:text-red-300 hover:bg-slate-800 w-full px-3 py-3 rounded-lg transition-colors ${!isSidebarOpen && "justify-center"}`}
-          >
-            <LogOut size={20} />
-            {isSidebarOpen && <span className="font-medium">Logout</span>}
-          </button>
+            )}
+          </div>
         </div>
-      </aside>
 
-      {/* NỬA PHẢI: MAIN CONTENT */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Header */}
-        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-8 z-10">
-          <h1 className="text-lg font-bold text-gray-800 capitalize">
-            {menuItems.find((m) => m.id === activeTab)?.label || "Dashboard"}
-          </h1>
-          <button
-            onClick={() => navigate("/")}
-            className="text-sm text-chuppaGreen font-medium hover:underline"
-          >
-            Go to Main Site ↗
-          </button>
-        </header>
+        {/* 3. SECTION: ĐƠN HÀNG MỚI NHẤT */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-bold text-slate-800">
+              Recent Bookings
+            </h2>
+          </div>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto">{renderContent()}</div>
-      </main>
+          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+            {recentBookings.length > 0 ? (
+              recentBookings.map((booking) => (
+                <div
+                  key={booking._id}
+                  className="flex justify-between items-center border-b border-slate-100 last:border-0 pb-4 last:pb-0"
+                >
+                  <div>
+                    <p className="text-sm font-bold text-slate-800">
+                      {booking.bookingCode}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate max-w-[150px]">
+                      {booking.user?.fullName || "Guest User"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-chuppaGreen">
+                      {booking.totalPrice} PLN
+                    </p>
+                    <span
+                      className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                        booking.status === "confirmed"
+                          ? "bg-green-100 text-green-700"
+                          : booking.status === "cancelled"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      {booking.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-400 text-center py-4">
+                No recent bookings found.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
