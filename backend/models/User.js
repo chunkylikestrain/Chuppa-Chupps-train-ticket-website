@@ -1,28 +1,69 @@
+// Path: backend/models/User.js
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    fullName: {
+    // --- Thông tin cơ bản (Cũ) ---
+    fullName: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    role: { type: String, enum: ["user", "admin", "staff"], default: "user" },
+
+    // --- Thông tin cá nhân (Mới) ---
+    avatar: { type: String, default: "" }, // URL ảnh đại diện
+    dateOfBirth: { type: Date },
+    gender: { type: String, enum: ["male", "female", "other"] },
+    phone: { type: String },
+    nationalId: { type: String }, // CMND/CCCD
+    passportNumber: { type: String }, // Hộ chiếu
+    passengerType: {
       type: String,
-      required: true,
+      enum: ["adult", "child", "student", "senior"],
+      default: "adult",
     },
-    email: {
-      type: String,
-      required: true,
-      unique: true, // Không cho phép 2 tài khoản trùng email
+
+    // --- Thẻ ưu đãi (Mới) ---
+    studentCard: {
+      studentId: String,
+      university: String,
+      major: String,
+      expiresAt: Date,
+      imageUrl: String,
+      verified: { type: Boolean, default: false },
+      verifiedAt: Date,
     },
-    password: {
-      type: String,
-      required: true,
+    seniorCard: {
+      verified: { type: Boolean, default: false },
+      verifiedAt: Date,
     },
-    role: {
-      type: String,
-      enum: ["user", "admin"],
-      default: "user",
+    disabilityCard: {
+      verified: { type: Boolean, default: false },
+      verifiedAt: Date,
+      imageUrl: String,
+    },
+
+    // --- Tích lũy điểm (Mới) ---
+    loyaltyPoints: { type: Number, default: 0 },
+
+    // --- Bảo mật (Mới) ---
+    twoFactorEnabled: { type: Boolean, default: false },
+    loginHistory: [
+      {
+        ip: String,
+        device: String,
+        loginAt: { type: Date, default: Date.now },
+      },
+    ],
+
+    // --- Cài đặt thông báo (Mới) ---
+    notifications: {
+      email: { type: Boolean, default: true },
+      sms: { type: Boolean, default: false },
+      promotions: { type: Boolean, default: true },
     },
   },
   {
-    timestamps: true, // Tự động thêm ngày tạo (createdAt) và ngày cập nhật (updatedAt)
+    timestamps: true,
   },
 );
 

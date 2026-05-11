@@ -1,43 +1,67 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+// Path: src/pages/Home.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "axios"; // BẮT BUỘC PHẢI CÓ ĐỂ GỌI API
+import axios from "axios";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
+import AccountDropdown from "../components/AccountDropdown";
 
 const Home = () => {
   const navigate = useNavigate();
 
-  // --- LOGIC NHẬN DIỆN NGƯỜI DÙNG ---
+  // ==========================================
+  // 1. TẤT CẢ CÁC STATE (Phải đặt lên trên cùng)
+  // ==========================================
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
-    const loggedInUser = localStorage.getItem("user");
-    if (loggedInUser) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setUser(JSON.parse(loggedInUser));
-    }
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setUser(null);
-    alert("Logged out successfully!");
-  };
-  // ----------------------------------
-
-  // --- STATE CHO FORM TÌM KIẾM VÀ DROPDOWN ---
   const [fromStation, setFromStation] = useState("");
   const [toStation, setToStation] = useState("");
   const [travelDate, setTravelDate] = useState("");
   const [travelTime, setTravelTime] = useState("");
+  const [passengers, setPassengers] = useState(1); // Khai báo ở đây
 
   const [fromSuggestions, setFromSuggestions] = useState([]);
   const [toSuggestions, setToSuggestions] = useState([]);
   const [showFromDropdown, setShowFromDropdown] = useState(false);
   const [showToDropdown, setShowToDropdown] = useState(false);
 
-  // --- HÀM GỌI API TÌM GA TÀU (Autocomplete) ---
+  // ==========================================
+  // 2. CÁC HIỆU ỨNG EFFECT (Chạy sau khi có State)
+  // ==========================================
+  useEffect(() => {
+    const loggedInUser = localStorage.getItem("user");
+    if (loggedInUser) {
+      setUser(JSON.parse(loggedInUser));
+
+      // Gọi API tự động điền số lượng hành khách
+      const token = localStorage.getItem("token");
+      if (token) {
+        axios
+          .get("http://localhost:5000/api/account/passengers", {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          .then((res) => {
+            // Nếu user có lưu hành khách, tự động điền số lượng
+            if (res.data && res.data.length > 0) {
+              setPassengers(res.data.length); // Bây giờ setPassengers đã tồn tại để gọi!
+            }
+          })
+          .catch((err) => console.error("Lỗi lấy danh sách hành khách:", err));
+      }
+    }
+  }, []);
+
+  // ==========================================
+  // 3. CÁC HÀM XỬ LÝ (HANDLERS)
+  // ==========================================
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setUser(null);
+    alert("Logged out successfully!");
+  };
+
   const handleFromChange = async (e) => {
     const value = e.target.value;
     setFromStation(value);
@@ -85,7 +109,6 @@ const Home = () => {
     setToStation(stationName);
     setShowToDropdown(false);
   };
-  // ---------------------------------------------
 
   const handleSwap = () => {
     setFromStation(toStation);
@@ -98,14 +121,23 @@ const Home = () => {
       alert("Please enter both Departure and Arrival stations! 🚂");
       return;
     }
+
     navigate("/results", {
-      state: { fromStation, toStation, travelDate, travelTime },
+      state: {
+        from: fromStation,
+        to: toStation,
+        date: travelDate,
+        passengers: parseInt(passengers),
+      },
     });
   };
 
+  // ==========================================
+  // 4. GIAO DIỆN CHÍNH (RENDER)
+  // ==========================================
   return (
     <div className="min-h-screen bg-chuppaGray flex flex-col font-sans text-gray-800">
-      {/* 1. HEADER */}
+      {/* HEADER */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -129,23 +161,7 @@ const Home = () => {
 
           <div className="flex items-center gap-4">
             {user ? (
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col items-end">
-                  <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-                    Welcome back
-                  </span>
-                  <span className="text-sm font-black text-chuppaGreen">
-                    {user.fullName}
-                  </span>
-                </div>
-                <div className="h-8 w-px bg-gray-200"></div>
-                <button
-                  onClick={handleLogout}
-                  className="text-sm font-bold text-red-500 hover:text-red-700 transition-colors"
-                >
-                  Logout
-                </button>
-              </div>
+              <AccountDropdown user={user} onLogout={handleLogout} />
             ) : (
               <Link to="/login">
                 <Button variant="ghost">Log in / Register</Button>
@@ -156,7 +172,7 @@ const Home = () => {
       </header>
 
       <main className="flex-grow">
-        {/* 2. HERO SECTION & FORM CÓ AUTOCOMPLETE */}
+        {/* HERO SECTION & SEARCH FORM */}
         <section className="bg-chuppaGreen-dark py-12 relative ">
           <div className="absolute top-0 left-0 w-full h-12 bg-chuppaGreen-light opacity-20 rounded-b-[50%]"></div>
 
@@ -173,24 +189,34 @@ const Home = () => {
             >
               {/* Ô NHẬP GA ĐI */}
               <div className="flex-1 w-full text-white relative">
-                <Input
-                  label="FROM"
+                <label className="block text-xs font-bold text-white mb-1 tracking-wider">
+                  FROM
+                </label>
+                <input
+                  type="text"
                   placeholder="e.g. Warszawa Centralna"
                   value={fromStation}
                   onChange={handleFromChange}
                   onBlur={() =>
                     setTimeout(() => setShowFromDropdown(false), 200)
                   }
+                  title={fromStation}
+                  className="w-full px-4 py-2.5 text-gray-800 bg-white border border-transparent rounded-lg outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/50 transition-all font-medium text-ellipsis overflow-hidden whitespace-nowrap focus:text-clip focus:overflow-x-auto"
                 />
+
                 {showFromDropdown && fromSuggestions.length > 0 && (
-                  <ul className="absolute z-50 top-[105%] left-0 w-full bg-white rounded-lg shadow-xl max-h-60 overflow-y-auto border border-gray-200">
+                  <ul className="absolute z-[100] top-full mt-1 left-0 w-max min-w-full bg-white rounded-lg shadow-xl max-h-60 overflow-y-auto overflow-x-hidden border border-gray-200">
                     {fromSuggestions.map((station) => (
                       <li
                         key={station._id}
-                        onClick={() => selectFromStation(station.name)}
-                        className="px-4 py-3 text-gray-800 hover:bg-chuppaGreen hover:text-white cursor-pointer border-b border-gray-100 last:border-none transition-colors font-medium flex items-center gap-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          selectFromStation(station.name);
+                        }}
+                        className="px-4 py-3 text-gray-800 hover:bg-chuppaGreen hover:text-white cursor-pointer border-b border-gray-100 last:border-none transition-colors font-medium flex items-start gap-2 whitespace-normal break-words"
                       >
-                        <span className="text-xl">📍</span> {station.name}
+                        <span className="text-xl shrink-0 mt-[-2px]">📍</span>
+                        <span>{station.name}</span>
                       </li>
                     ))}
                   </ul>
@@ -206,22 +232,31 @@ const Home = () => {
 
               {/* Ô NHẬP GA ĐẾN */}
               <div className="flex-1 w-full text-white relative">
-                <Input
-                  label="TO"
+                <label className="block text-xs font-bold text-white mb-1 tracking-wider">
+                  TO
+                </label>
+                <input
+                  type="text"
                   placeholder="e.g. Kraków Główny"
                   value={toStation}
                   onChange={handleToChange}
                   onBlur={() => setTimeout(() => setShowToDropdown(false), 200)}
+                  title={toStation}
+                  className="w-full px-4 py-2.5 text-gray-800 bg-white border border-transparent rounded-lg outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/50 transition-all font-medium text-ellipsis overflow-hidden whitespace-nowrap focus:text-clip focus:overflow-x-auto"
                 />
                 {showToDropdown && toSuggestions.length > 0 && (
-                  <ul className="absolute z-50 top-[105%] left-0 w-full bg-white rounded-lg shadow-xl max-h-60 overflow-y-auto border border-gray-200">
+                  <ul className="absolute z-[100] top-full mt-1 left-0 w-max min-w-full bg-white rounded-lg shadow-xl max-h-60 overflow-y-auto overflow-x-hidden border border-gray-200">
                     {toSuggestions.map((station) => (
                       <li
                         key={station._id}
-                        onClick={() => selectToStation(station.name)}
-                        className="px-4 py-3 text-gray-800 hover:bg-chuppaGreen hover:text-white cursor-pointer border-b border-gray-100 last:border-none transition-colors font-medium flex items-center gap-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          selectToStation(station.name);
+                        }}
+                        className="px-4 py-3 text-gray-800 hover:bg-chuppaGreen hover:text-white cursor-pointer border-b border-gray-100 last:border-none transition-colors font-medium flex items-start gap-2 whitespace-normal break-words"
                       >
-                        <span className="text-xl">📍</span> {station.name}
+                        <span className="text-xl shrink-0 mt-[-2px]">📍</span>
+                        <span>{station.name}</span>
                       </li>
                     ))}
                   </ul>
@@ -246,6 +281,18 @@ const Home = () => {
                 />
               </div>
 
+              {/* Ô CHỌN SỐ LƯỢNG NGƯỜI */}
+              <div className="w-full md:w-32 text-white">
+                <Input
+                  label="PASSENGERS"
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={passengers}
+                  onChange={(e) => setPassengers(e.target.value)}
+                />
+              </div>
+
               <div className="w-full md:w-auto pb-4">
                 <button
                   type="submit"
@@ -258,9 +305,7 @@ const Home = () => {
           </div>
         </section>
 
-        {/* CÁC SECTION UI CỦA BẠN ĐƯỢC GIỮ NGUYÊN BÊN DƯỚI */}
-
-        {/* 3. QUICK LINKS SECTION */}
+        {/* QUICK LINKS SECTION */}
         <section className="max-w-5xl mx-auto px-4 py-12">
           <h2 className="text-4xl font-black text-gray-800 text-center mb-8 italic tracking-wide">
             NIEŚPIESZNY <span className="text-chuppaGreen">(UNHURRIED)</span>
@@ -288,7 +333,7 @@ const Home = () => {
           </div>
         </section>
 
-        {/* 4. IMPORTANT INFORMATION SECTION */}
+        {/* IMPORTANT INFORMATION SECTION */}
         <section className="max-w-5xl mx-auto px-4 py-8">
           <h3 className="text-2xl font-bold text-gray-800 mb-6">
             Important information for passengers
@@ -312,7 +357,7 @@ const Home = () => {
           </div>
         </section>
 
-        {/* 5. FREQUENTLY SEARCHED - FOR PASSENGERS */}
+        {/* FREQUENTLY SEARCHED - FOR PASSENGERS */}
         <section className="max-w-5xl mx-auto px-4 py-12 mt-4">
           <div className="mb-8">
             <p className="text-xs uppercase tracking-widest text-gray-500 font-semibold mb-1">
@@ -425,7 +470,7 @@ const Home = () => {
           </div>
         </section>
 
-        {/* 6. SOCIAL & APP ICONS ROW */}
+        {/* SOCIAL & APP ICONS ROW */}
         <section className="max-w-5xl mx-auto px-4 py-6 border-t border-gray-200 flex justify-end items-center gap-4 text-gray-600">
           <span className="font-bold text-sm tracking-widest mr-2">
             ChuppaChup{" "}
