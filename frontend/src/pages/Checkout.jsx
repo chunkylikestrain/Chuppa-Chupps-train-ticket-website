@@ -55,7 +55,7 @@ const Checkout = () => {
   const [usePoints, setUsePoints] = useState(false);
 
   // ==========================================
-  // STATE DANH SÁCH HÀNH KHÁCH (Dựa trên số ghế)
+  // STATE DANH SÁCH HÀNH KHÁCH
   // ==========================================
   const [passengerList, setPassengerList] = useState([]);
 
@@ -65,16 +65,14 @@ const Checkout = () => {
       return;
     }
 
-    // Tự động tạo mảng hành khách dựa trên các ghế đã chọn
     const initialPassengers = bookingData.selectedSeats.map((seat, index) => ({
       id: index,
       seatDisplay: seat,
       fullName: "",
       idCard: "",
-      type: "adult", // Mặc định là người lớn
+      type: "adult",
     }));
 
-    // Tự động điền người đầu tiên là User đang đăng nhập và lấy Email
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       const user = JSON.parse(storedUser);
@@ -86,7 +84,6 @@ const Checkout = () => {
     }
     setPassengerList(initialPassengers);
 
-    // Lấy Profile để check điểm và thẻ SV
     const fetchProfile = async () => {
       try {
         const token = localStorage.getItem("token");
@@ -111,18 +108,34 @@ const Checkout = () => {
   };
 
   // ==========================================
+  // XỬ LÝ CHUYỂN BƯỚC (BỌC LÓT RÀNG BUỘC)
+  // ==========================================
+  const handleProceedToStep2 = () => {
+    // Ràng buộc cứng: Quét xem có ông nào chưa nhập tên không
+    const hasEmptyName = passengerList.some(
+      (p) => !p.fullName || p.fullName.trim() === "",
+    );
+
+    if (hasEmptyName) {
+      alert("Please enter full names for all passengers before proceeding!");
+      return; // Cắt ngang, không cho chuyển bước
+    }
+
+    setStep(2);
+  };
+
+  // ==========================================
   // LOGIC TÍNH TOÁN GIÁ TIỀN, VOUCHER & ĐIỂM THƯỞNG
   // ==========================================
   const basePricePerSeat =
     bookingData.totalPrice / (bookingData.selectedSeats?.length || 1);
 
-  // 1. Tính giá sau khi giảm giá cho từng hạng hành khách
   const calculateSubtotal = () => {
     let total = 0;
     passengerList.forEach((p) => {
       let price = basePricePerSeat;
-      if (p.type === "student" || p.type === "child") price = price * 0.5; // Giảm 50%
-      if (p.type === "senior") price = price * 0.7; // Giảm 30%
+      if (p.type === "student" || p.type === "child") price = price * 0.5;
+      if (p.type === "senior") price = price * 0.7;
       total += price;
     });
     return total;
@@ -143,7 +156,6 @@ const Checkout = () => {
     }
   }, [hasDiscountedPassenger, appliedVoucher]);
 
-  // 2. Tính tiền Voucher
   let voucherDiscount = 0;
   if (appliedVoucher && !hasDiscountedPassenger) {
     if (appliedVoucher.discountType === "percent") {
@@ -155,21 +167,18 @@ const Checkout = () => {
 
   const priceAfterVoucher = Math.max(0, subTotal - voucherDiscount);
 
-  // 3. Tính tiền Giảm từ Điểm Loyalty (10 điểm = 1 PLN)
   const availablePoints = userProfile?.loyaltyPoints || 0;
   let pointsToUse = 0;
   let pointsDiscount = 0;
 
   if (usePoints && availablePoints > 0) {
-    const maxPointsNeeded = Math.floor(priceAfterVoucher * 10); // Cần tối đa bao nhiêu điểm
+    const maxPointsNeeded = Math.floor(priceAfterVoucher * 10);
     pointsToUse = Math.min(availablePoints, maxPointsNeeded);
     pointsDiscount = pointsToUse / 10;
   }
 
-  // 4. Chốt giá cuối cùng
   const finalPrice = Math.max(0, priceAfterVoucher - pointsDiscount);
 
-  // Áp dụng voucher API
   const handleApplyVoucher = async (e) => {
     e.preventDefault();
     setVoucherError("");
@@ -185,9 +194,6 @@ const Checkout = () => {
     }
   };
 
-  // ==========================================
-  // FORMATTING THẺ
-  // ==========================================
   const handleCardNumberChange = (e) => {
     let val = e.target.value.replace(/\D/g, "");
     val = val.replace(/(\d{4})/g, "$1 ").trim();
@@ -222,17 +228,15 @@ const Checkout = () => {
         ticketType: p.type,
       }));
 
-      // CẤU TRÚC LẠI PAYLOAD (Bổ sung thêm scheduleId)
       const payload = {
         train: bookingData.selectedSchedule.trainId,
-        // Dòng cực kỳ quan trọng để khóa ghế:
         scheduleId:
           bookingData.selectedSchedule.scheduleId ||
           bookingData.selectedSchedule._id ||
           schedule.scheduleId,
         seats: bookingData.selectedSeats,
         totalPrice: finalPrice,
-        usedPoints: pointsToUse, // Gửi số điểm tiêu lên cho Backend trừ
+        usedPoints: pointsToUse,
         passengers: formattedPassengers,
         status: "confirmed",
         journeyDetails: {
@@ -251,12 +255,8 @@ const Checkout = () => {
         config,
       );
 
-      // --- GIẢI QUYẾT BUG 2: Cập nhật LocalStorage và State UI ---
       if (response.data.user) {
-        // Cập nhật State để UI hiển thị mới nhất ngay lập tức
         setUserProfile(response.data.user);
-
-        // Cập nhật đè lên localStorage để các trang khác (Header, Profile) nhận diện
         const currentLocalUser = JSON.parse(
           localStorage.getItem("user") || "{}",
         );
@@ -310,9 +310,7 @@ const Checkout = () => {
       </header>
 
       <main className="flex-grow max-w-5xl mx-auto w-full px-4 pt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* CỘT TRÁI: KHU VỰC THAO TÁC CHÍNH */}
         <div className="lg:col-span-2 space-y-6">
-          {/* STEP 1: ĐIỀN THÔNG TIN HÀNH KHÁCH */}
           {step === 1 && (
             <div className="animate-in slide-in-from-bottom-4 duration-300">
               <h1 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
@@ -418,11 +416,13 @@ const Checkout = () => {
                 </div>
               </div>
 
-              {/* Nút chỉ hiện Enable khi tất cả hành khách đã có tên */}
+              {/* Thay đổi handler và ràng buộc disabled an toàn tuyệt đối */}
               <Button
                 fullWidth
-                onClick={() => setStep(2)}
-                disabled={!passengerList.every((p) => p.fullName.trim() !== "")}
+                onClick={handleProceedToStep2}
+                disabled={passengerList.some(
+                  (p) => !p.fullName || p.fullName.trim() === "",
+                )}
               >
                 Proceed to Payment Details
               </Button>
