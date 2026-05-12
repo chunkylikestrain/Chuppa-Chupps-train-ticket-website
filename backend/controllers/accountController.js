@@ -39,7 +39,7 @@ export const updateProfile = async (req, res) => {
         passportNumber,
         passengerType,
       },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true }, // ĐÃ SỬA WARNING
     ).select("-password");
 
     res.json(user);
@@ -59,7 +59,7 @@ export const uploadAvatar = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { avatar: avatarUrl },
-      { new: true },
+      { returnDocument: "after" }, // ĐÃ SỬA WARNING
     ).select("-password");
 
     res.json(user);
@@ -67,12 +67,13 @@ export const uploadAvatar = async (req, res) => {
     res.status(500).json({ message: "Error uploading avatar" });
   }
 };
+
 export const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const user = await User.findById(req.user._id);
 
-    // Kiểm tra mật khẩu cũ (Giả sử bạn dùng bcrypt)
+    // Kiểm tra mật khẩu cũ
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch)
       return res.status(400).json({ message: "Incorrect current password" });
@@ -106,7 +107,6 @@ export const submitStudentCard = async (req, res) => {
   try {
     const { studentId, university, major, expiresAt } = req.body;
 
-    // ĐÃ SỬA: Bỏ chữ /cards/ đi
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : "";
 
     const user = await User.findById(req.user._id);
@@ -168,7 +168,7 @@ export const updatePassenger = async (req, res) => {
     const passenger = await Passenger.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },
       req.body,
-      { new: true },
+      { returnDocument: "after" }, // ĐÃ SỬA WARNING
     );
     res.json(passenger);
   } catch (error) {
@@ -196,7 +196,7 @@ export const setDefaultPassenger = async (req, res) => {
     const passenger = await Passenger.findOneAndUpdate(
       { _id: req.params.id, user: req.user._id },
       { isDefault: true },
-      { new: true },
+      { returnDocument: "after" }, // ĐÃ SỬA WARNING
     );
     res.json(passenger);
   } catch (error) {
@@ -223,7 +223,7 @@ export const updateNotifications = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { notifications: req.body },
-      { new: true },
+      { returnDocument: "after" }, // ĐÃ SỬA WARNING
     ).select("notifications");
     res.json(user.notifications);
   } catch (error) {
